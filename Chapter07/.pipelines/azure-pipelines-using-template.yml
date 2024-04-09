@@ -1,0 +1,12 @@
+resources:
+  repositories:
+  - repository: PipelineRepo
+    type: git
+    ref: main  
+    name: PowerPlatform/Copilot
+
+trigger:
+- none
+
+steps:
+- template: .pipelines\include-paccli-steps.yml@PipelineRepo
