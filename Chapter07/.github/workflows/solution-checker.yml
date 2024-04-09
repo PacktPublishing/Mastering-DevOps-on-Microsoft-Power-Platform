@@ -1,0 +1,33 @@
+name: Solution-Checker
+on:  
+  workflow_dispatch:
+
+jobs:
+  solutioncheck:
+    runs-on: ubuntu-latest 
+    env:
+     Solution: mpa_ITBase 
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+      - name: Pack unmanaged solution
+        uses: microsoft/powerplatform-actions/pack-solution@v1
+        with:
+          solution-folder: ${{ env.Solution }}
+          solution-file: ${{ env.Solution }}_unmanaged.zip
+          solution-type: Unmanaged
+          
+      - name: Check-solution
+        uses: microsoft/powerplatform-actions/check-solution@v1
+        with:
+          environment-url: https://orgae9e123c.crm.dynamics.com
+          app-id: 862e5a17-d38b-43ff-b24f-88a77f59623f
+          client-secret: "${{ secrets.CLIENTSECRET_DEV }}"
+          tenant-id: 4ae51f31-033a-48fa-be48-5ece14d2c081
+          path: ${{ env.Solution }}_unmanaged.zip
+        
+        
+
+      
