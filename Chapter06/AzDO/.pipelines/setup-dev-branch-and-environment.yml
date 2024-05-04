@@ -1,0 +1,68 @@
+trigger:   
+- none
+#- dev/*
+
+pool:
+  vmImage: windows-latest
+
+parameters:
+  - name: devbranch
+    displayName: dev branch name
+    default: "US_XXX_Y"
+
+steps:
+- task: PowerPlatformToolInstaller@2
+  inputs:
+    DefaultVersion: true
+
+- bash: |
+    echo "Installing Pac CLI"
+    dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+  displayName: "Installing Pac CLI"
+
+- bash: |
+    git config user.name $(Build.RequestedFor)
+    git config user.email $(Build.RequestedForEmail)
+    #creating the branch under "dev" folder
+    newbranch=dev/${{ parameters.devbranch }}
+    git checkout -b $newbranch
+    git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin $newbranch
+  displayName: "Create developer branch"
+
+- bash: |
+    pac auth create --applicationId 862e5a17-d38b-43ff-b24f-88a77f59623f \
+    --clientSecret $(ClientSecret) \
+    --tenant 4ae51f31-033a-48fa-be48-5ece14d2c081
+  displayName: "Authenticate with SPN"
+
+- bash: |
+    set -e
+    echo "Build requested for $(Build.RequestedFor)"
+    echo "Build requested ID: $(Build.RequestedForId)"
+    echo "Build requested email: $(Build.RequestedForEmail)"
+    
+    az login --service-principal \
+      -u 862e5a17-d38b-43ff-b24f-88a77f59623f \
+      -p $(ClientSecret) \
+      --tenant 4ae51f31-033a-48fa-be48-5ece14d2c081
+
+    AADObjectID=$(az ad user show \
+             --id $(Build.RequestedForEmail) \
+             --query id \
+             --output tsv)
+    echo "AADObject ID: $AADObjectID" 
+    pac admin create --name "dev-US_XXX_Y" \
+       --type Developer \
+       --user $AADObjectID
+    # Get the environment Id (the row before the last row contains the information)
+    rawOutput=$(pac admin list --name dev-us_XXX_Y | tail -n 2)
+    environmentId=$(echo $rawOutput | cut -d ' ' -f 2)
+    #adding system administrator role to the user who has created the developer environment
+    pac admin assign-user --environment $environmentId --user $AADObjectID --role "System Administrator"
+  displayName: "Create Dev Environment on behalf of $(Build.RequestedForEmail)"
+  enabled: true
+
+# Create service connection
+
+
+# publish the unmanaged changes

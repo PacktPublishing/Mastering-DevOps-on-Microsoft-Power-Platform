@@ -1,0 +1,5 @@
+steps:
+- bash: |
+    echo "Installing Pac CLI"
+    dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+  displayName: "Installing Pac CLI"

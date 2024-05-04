@@ -1,0 +1,27 @@
+<bot schemaname="crb87_packtCopilot">
+  <authenticationmode>2</authenticationmode>
+  <authenticationtrigger>1</authenticationtrigger>
+  <iscustomizable>0</iscustomizable>
+  <language>1033</language>
+  <name>PacktCopilot</name>
+  <runtimeprovider>0</runtimeprovider>
+  <synchronizationstatus>{
+  "contentVersion": 2,
+  "lastFinishedPublishOperation": {
+    "operationStart": "2024-03-10T14:57:39.4909456Z",
+    "operationEnd": "2024-03-10T14:58:02.0963715Z",
+    "status": "Succeeded"
+  },
+  "currentSynchronizationState": {
+    "botRegistration": {
+      "applicationId": "bd6fb1d2-1e34-45ac-8f5f-afb1c8ad1cd4",
+      "isAppAvailableInTenant": true
+    },
+    "provisioningStatus": "Provisioned",
+    "state": "Synchronized"
+  },
+  "lastSynchronizedOnUtc": "2024-03-10T15:00:06.934519Z"
+}</synchronizationstatus>
+  <template>default-2.0.1</template>
+  <timezoneruleversionnumber>4</timezoneruleversionnumber>
+</bot>

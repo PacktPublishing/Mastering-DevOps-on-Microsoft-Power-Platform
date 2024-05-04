@@ -1,0 +1,33 @@
+{
+  "authorization": {
+    "parameters": {
+      "tenantId": "GUID",
+      "applicationId": "GUID",
+      "clientSecret": "secret"
+    },
+    "scheme": "None"
+  },
+  "createdBy": {},
+  "data": {},
+  "isShared": false,
+  "isOutdated": false,
+  "name": "ConnenctionName",
+  "owner": "library",
+  "type": "powerplatform-spn",
+  "url": "DataverseURL",
+  "administratorsGroup": null,
+  "description": "",
+  "groupScopeId": null,
+  "operationStatus": null,
+  "readersGroup": null,
+  "serviceEndpointProjectReferences": [
+    {
+      "description": "",
+      "name": "ProjectName",
+      "projectReference": {
+        "id": "ProjectID",
+        "name": "ProjectName"
+      }
+    }
+  ]
+}

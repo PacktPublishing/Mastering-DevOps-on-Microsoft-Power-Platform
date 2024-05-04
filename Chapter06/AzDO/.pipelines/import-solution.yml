@@ -1,0 +1,55 @@
+trigger:
+- none
+
+parameters:
+  - name: sourceBranch
+    displayName: "Source Branch"
+    default: 'dev/US_XXX_Y'
+
+  - name: serviceconnection
+    displayName: "Power Platform Service Connection"
+    default: 'dev-US_XXX_Y'
+
+variables:
+ solutionName: "PacktCopilotSolution"
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- checkout: git://PowerPlatform/Copilot@${{parameters.sourceBranch}}
+  displayName: 'Checkout Source Branch'
+  persistCredentials: true
+
+- script: |
+     dir
+     ls
+
+- task: PowerPlatformToolInstaller@2
+  inputs:
+    DefaultVersion: true
+
+- task: PowerPlatformPackSolution@2
+  inputs:
+    SolutionSourceFolder: '$(System.DefaultWorkingDirectory)/src/$(solutionName)'
+    SolutionOutputFile: '$(Build.ArtifactStagingDirectory)/Solution/$(solutionName).zip'
+    SolutionType: 'Unmanaged'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/Solution'
+    ArtifactName: 'Solution'
+    publishLocation: 'Container'
+
+- task: PowerPlatformImportSolution@2
+  inputs:
+    authenticationType: 'PowerPlatformSPN'
+    PowerPlatformSPN: ${{parameters.serviceconnection}}
+    SolutionInputFile: '$(Build.ArtifactStagingDirectory)/Solution/$(solutionName).zip'
+    AsyncOperation: true
+    MaxAsyncWaitTime: '60'
+- task: PowerPlatformPublishCustomizations@2
+  inputs:
+    authenticationType: 'PowerPlatformSPN'
+    PowerPlatformSPN: ${{parameters.serviceconnection}}
+

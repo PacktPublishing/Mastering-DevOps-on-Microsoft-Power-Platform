@@ -1,0 +1,88 @@
+trigger:
+- none
+
+parameters:
+  - name: targetBranch
+    displayName: "Target Branch"
+    default: 'dev/US_XXX_Y'
+
+  - name: serviceconnection
+    displayName: "Power Platform Service Connection"
+    default: 'dev-US_XXX_Y'
+
+variables:
+ solutionName: "PacktCopilotSolution"
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+#- checkout: self
+#  clean: true
+#  persistCredentials: true
+
+- checkout: git://$(System.TeamProject)/$(Build.Repository.Name)@${{parameters.targetBranch}}
+  displayName: 'Checkout Source Branch'
+  persistCredentials: true
+
+# Configure email/name and checkout git branch
+- script: |
+   git config user.name $(Build.RequestedFor)
+   git config user.email $(Build.RequestedForEmail)
+   git checkout origin/${{parameters.targetBranch}} --track
+  
+- task: PowerPlatformToolInstaller@2
+  inputs:
+    DefaultVersion: true
+
+- task: PowerPlatformExportSolution@2
+  inputs:
+    authenticationType: 'PowerPlatformSPN'
+    PowerPlatformSPN: ${{ parameters.serviceconnection }}
+    SolutionName: '$(solutionName)'
+    SolutionOutputFile: './out/$(solutionName)_managed.zip'
+    Managed: true
+    AsyncOperation: true
+    MaxAsyncWaitTime: '60'
+  enabled: true
+
+- task: PowerPlatformExportSolution@2
+  inputs:
+    authenticationType: 'PowerPlatformSPN'
+    PowerPlatformSPN: ${{ parameters.serviceconnection }}
+    SolutionName: '$(solutionName)'
+    SolutionOutputFile: './out/$(solutionName).zip'
+    Managed: false
+    AsyncOperation: true
+    MaxAsyncWaitTime: '60'
+  enabled: true
+
+- task: PowerPlatformUnpackSolution@2
+  inputs:
+    SolutionInputFile: './out/$(solutionName).zip'
+    SolutionTargetFolder: './src/$(solutionName)'
+    SolutionType: 'Both'
+    OverwriteFiles: True
+  enabled: true
+
+- script: |
+    #!/bin/bash
+    set -e
+    # Set the path to the directory containing the solution
+    solution_dir="$(Build.SourcesDirectory)/src/$(solutionName)"
+
+    # Find all Solution.xml files in the solution directory and its subdirectories
+    find "$solution_dir" -type f -name "Solution.xml" | while read -r file; do
+        # Replace the content of the <Version> tag with 0.0.0.0
+        sed -i 's|<Version>.*</Version>|<Version>0.0.0.0</Version>|g' "$file"
+    done
+  displayName: "Set version number to 0.0.0.0"
+
+- script: |
+    rm -rf ./out/$(solutionName).zip
+    rm -rf ./out/$(solutionName)_managed.zip
+    git add --all
+    git commit -am "Solution is committed" --allow-empty
+    git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin ${{parameters.targetBranch}}
+  displayName: "Commit changes"
+

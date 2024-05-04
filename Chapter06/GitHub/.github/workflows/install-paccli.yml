@@ -1,0 +1,21 @@
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: number
+      platform: 
+       required: true
+       type: string
+       description: "platform, like ubuntu-latest or windows-latest"
+jobs:
+  installpac:
+    runs-on: ${{inputs.platform}}
+    steps:
+     - name: install pac cli
+       shell: bash
+       run: |
+          echo "version number: ${{inputs.version}}"
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+                
+        

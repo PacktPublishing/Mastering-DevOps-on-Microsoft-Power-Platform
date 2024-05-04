@@ -1,0 +1,54 @@
+trigger:
+- none
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+  - name: ppdevenvironment
+    type: string
+    default: "dev-US_XXX_Y"
+  
+  - name: ppdevenvironmentURL
+    type: string
+    default: "https://"
+
+
+variables:
+  - name: applicationId
+    value: "862e5a17-d38b-43ff-b24f-88a77f59623f"
+  - name: tenantId
+    value: "4ae51f31-033a-48fa-be48-5ece14d2c081"
+
+steps:
+
+- script: |
+    set -e
+    # This is a simple bash script
+    # Set the filename
+    filename="config_tokenizer.json"
+    # Read the JSON file
+    json_string=$(cat .pipelines/$filename)
+    # Replace the value
+    new_json_string=$(jq '.authorization.parameters.clientSecret = "$(ClientSecret)"' <<< "$json_string")
+    new_json_string=$(jq '.authorization.parameters.tenantId = "$(tenantId)"' <<< "$new_json_string")
+    new_json_string=$(jq '.authorization.parameters.applicationId = "$(applicationId)"' <<< "$new_json_string")
+    new_json_string=$(jq '.url = "${{ parameters.ppdevenvironmentURL }}"' <<< "$new_json_string")
+    new_json_string=$(jq '.name = "${{ parameters.ppdevenvironment }}"' <<< "$new_json_string")
+    new_json_string=$(jq '.serviceEndpointProjectReferences[0].projectReference.id = "$(System.TeamProjectId)"' <<< "$new_json_string")
+    new_json_string=$(jq '.serviceEndpointProjectReferences[0].projectReference.name = "$(System.TeamProject)"' <<< "$new_json_string")
+    new_json_string=$(jq '.serviceEndpointProjectReferences[0].name = "${{ parameters.ppdevenvironment }}"' <<< "$new_json_string")
+    # Write the modified JSON data back to the file
+    echo $new_json_string > config.json
+    cat config.json
+  displayName: "Preparing config.json"
+
+- script: |
+    echo $(PatToken) | az devops login --organization $(System.CollectionUri)
+    az devops service-endpoint create \
+       --organization $(System.CollectionUri) \
+       --project $(System.TeamProject) --service-endpoint-configuration config.json
+
+
+  displayName: "Create Service Connection"
+
