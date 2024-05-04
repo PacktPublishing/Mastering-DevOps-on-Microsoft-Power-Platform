@@ -1,0 +1,85 @@
+# .NET Core
+project.lock.json
+.project.json
+.ionide
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+TestOutput/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Visual Studio 2015 / Visual Studio 2017
+.vs/
+*.jfm
+*.dbmdl
+*.pfx
+*.publishsettings
+
+# Others
+sql/
+*.Cache
+ClientBin/
+[Ss]tyle[Cc]op.*
+~$*
+*~
+*.db
+*.tmp
+*.bak
+*.swp
+*.*~
+*.swp
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.opendb
+*.VC.db
+*.VC.VC.opendb
+*.idb
+*.svclog
+*.scc
+
+# R# files
+/_ReSharper.*/
+*.[Rr]e[Ss]harper
+*.resharper.user
+
+# TeamCity files
+_TeamCity*
+
+# DotCover is a Code Coverage Tool
+*.dotCover
+
+# NCrunch
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# MightyMoose
+*.mm.*
+AutoTest.Net/
+
+# Web workbench (sass)
+.sass-cache/
+
+# Installshield output folder
+[Ee]xpress/
+
+# DocProject is a documentation generator add-in
+DocProject/buildhelp/

@@ -1,0 +1,56 @@
+name: Pull request check
+on:   
+  pull_request:
+    types: [edited, synchronize, opened, reopened]
+    branches: [ "main" ]
+
+jobs:
+  prcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for description in PR
+        id: check-description
+        run: |
+          # every pull request is an issue as well - we can address them through /issues/ endpoint
+          prbody=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}")
+          if [ $(echo "$prbody" | jq .body ) == "null" ]; then
+            echo "There is no description added to the PR."
+            echo "no_desc=true" >> $GITHUB_OUTPUT
+          else
+            echo "Comments are added to the PR."
+            echo "no_desc=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+      
+      - name: Fail if no description
+        run: |
+          if [[ "${{ steps.check-description.outputs.no_desc }}" == "true" ]]; then
+           echo "No description added to the pull request. Failing the build."
+           exit 1
+          fi
+        shell: bash
+      
+      - name: Check for comments in PR
+        id: check-comments
+        run: |
+          # every pull request is an issue as well - we can address them through /issues/ endpoint
+          comments=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments")
+          if [ $(echo "$comments" | jq '. | length') -eq 0 ]; then
+            echo "There is no comment added to the PR."
+            echo "no_comments=true" >> $GITHUB_OUTPUT
+          else
+            echo "Comments are added to the PR."
+            echo "no_comments=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+        
+      - name: Fail if no comments
+        run: |
+          if [[ "${{ steps.check-comments.outputs.no_comments }}" == "true" ]]; then
+           echo "No comments added to the pull request. Failing the build."
+           exit 1
+          fi
+        shell: bash
+        

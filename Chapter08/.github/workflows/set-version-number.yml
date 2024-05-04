@@ -1,0 +1,41 @@
+name: Set version number (reusable)
+on:
+    workflow_call:
+      inputs:
+        source_folder:
+          required: true
+          type: string
+          description: "Source folder"
+        version_number: 
+         required: true
+         type: string
+         description: "0.0.0.0"
+jobs:
+    set-version:
+      runs-on: ubuntu-latest
+      permissions: 
+       contents: write
+      steps:
+        - uses: actions/checkout@v4
+        - shell: bash
+          run: |
+            # Find all Solution.xml files in the solution directory and its subdirectories
+            find ${{ inputs.source_folder }} -type f -name "Solution.xml" | while read -r file; do
+               # Replace the content of the <Version> tag with version number provided in the input
+               sed -i 's|<Version>.*</Version>|<Version>${{ inputs.version_number }}</Version>|g' "$file"
+            done
+        - name: commit changes to branch
+          run: |
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git config --global user.name "github-actions[bot]"
+            if git diff --exit-code --quiet
+            then
+              echo "No changes to commit"
+            else
+              echo "Current branch: ${{github.ref_name}}"
+              git fetch
+              git pull origin ${{github.ref_name}}
+              git add ${{ inputs.source_folder }}
+              git commit -m "committing version changes to branch"
+              git push origin ${{github.ref_name}}
+            fi

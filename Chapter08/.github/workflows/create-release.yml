@@ -1,0 +1,91 @@
+name: GitHub Release
+on:
+  workflow_dispatch: 
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        default: 1.0.0.0
+      release_title:
+        description: 'Release title'
+        required: true
+        default: 'Initial release'
+env:
+ solution_release_folder: out/release       
+
+jobs:
+  set-version-and-build:
+   runs-on: windows-latest
+   steps:
+    - uses: actions/checkout@v4
+    # composite action to set the version number
+    - name: Set version number
+      uses: ./.github/actions/set-version-number-action
+      id: set-version
+      with:
+        source_folder: src
+        version_number: ${{ inputs.release_version }}
+    - run: echo files changed "$CHANGE"
+      shell: bash
+      env:
+         CHANGE: ${{ steps.set-version.outputs.files-changed }}
+    - name: Add msbuild to PATH
+      uses: microsoft/setup-msbuild@v2
+    - name: Build with MSBuild
+      run: msbuild .\src\solutions.proj /p:Configuration=Release
+      shell: cmd
+    - name: Upload build artifacts - Kudos
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts-Kudos
+        path: .\src\mpa_Kudos\bin\Release\*_managed.zip
+    - name: Upload build artifacts - Employee Experience
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts-EE
+        path: .\src\mpa_EmployeeExperienceBase\bin\Release\*_managed.zip
+    - name: Build with MSBuild
+      run: |
+        cd src
+        cd DeploymentPackage
+        dotnet publish -c Release /p:Version=${{inputs.release_version}}
+      shell: cmd
+    - name: Upload build artifacts - Deployment Package
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts-DeploymentPackage
+        path: .\src\DeploymentPackage\bin\Release\*.zip
+    
+  release:
+   needs: [ set-version-and-build ]
+   runs-on: ubuntu-latest
+   permissions:
+    contents: write
+   steps:
+    - uses: actions/checkout@v4
+      with:
+        lfs: true
+    - name: Fetch the ready to ship deployment package from GH artifact store
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-DeploymentPackage
+        path: ${{ env.solution_release_folder}}
+    - name: Fetch the ready to ship Kudos solution from GH artifact store
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-Kudos
+        path: ${{ env.solution_release_folder}}
+    - name: Fetch the ready to ship EmployeeExperience solution from GH artifact store
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-EE
+        path: ${{ env.solution_release_folder}}
+    - name: Authenticate gh cli
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+    - name: Create a release
+      shell: bash
+      run: | 
+       gh release create ${{inputs.release_version}} --title "${{inputs.release_title}}" --generate-notes ${{ env.solution_release_folder}}/*.*
+       echo "Release created successfully"
+
+  

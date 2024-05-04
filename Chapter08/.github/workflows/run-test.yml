@@ -1,0 +1,54 @@
+name: Run test (test)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+         token: ${{ secrets.GITHUB_TOKEN }}
+   
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Install Pac CLI
+        shell: bash
+        run: |
+          echo "Installing Pac CLI"
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+
+      - name: Authenticate with SPN
+        shell: bash
+        run: |
+         pac auth create --applicationId ${{secrets.PPAPPID}} \
+           --clientSecret ${{secrets.PPAPPSECRET}} \
+           --tenant ${{secrets.PPTENANTID}}
+   
+
+      - name: Run test
+        shell: bash
+        run: |
+          set -e
+
+          ref=${{ github.ref }}
+          echo "Ref: $ref"
+          branch="${ref#refs/heads/dev/}"
+          echo "$branch"
+          # Get the environment Id (the row before the last row contains the information)
+          rawOutput=$(pac admin list --name $branch | tail -n 2)
+          environmentId=$(echo $rawOutput | cut -d ' ' -f 2)
+
+          export user1Email="${{secrets.TESTUSER}}"
+          export user1Password="${{secrets.TESTUSERPSW}}"
+          pac test run --test-plan-file ./test/SmokeTestSuite.yaml -env $environmentId \
+              --tenant ${{secrets.PPTENANTID}}
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-results
+          path: ./TestOutput

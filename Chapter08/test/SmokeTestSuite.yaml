@@ -1,0 +1,45 @@
+testSuite:
+  testSuiteName: SmokeTestSuite
+  testSuiteDescription: ''
+  persona: User1
+  appLogicalName: mpa_kudosapp
+  appId: ''
+  onTestCaseStart: ""
+  onTestCaseComplete: ""
+  onTestSuiteComplete: ""
+  networkRequestMocks: 
+  testCases:
+  - testCaseName: PraiseTest
+    testCaseDescription: ''
+    testSteps: |
+      = 
+      Select('btnGetStarted_LandingScreen');
+      Select('cmbPeoplePicker_MainPage');
+      SetProperty('cmbPeoplePicker_MainPage'.SelectedItems, Table({'DisplayName':"Maker Colleague A",'UserPrincipalName':"makera@jovadkere5.onmicrosoft.com"}));
+      Select('cmbPeoplePicker_MainPage');
+      Select('btnNextPeopleSelect_MainPage');
+      Select(galBadgeGallery_BadgeSelection, 1, btnSelectBadgeGallery_BadgeSelection);
+      Select(btnSubmit_BadgeSelection);
+      SetProperty(txtSubject_Message.Text, "Great");
+      SetProperty(txtMessage_Message.Text, "Awesome");
+      Select(btnSubmit_Message);
+      Select(btnSubmitKudo_Submission);
+      Select(btnSucess_Success);
+testSettings:
+  filePath: 
+  browserConfigurations:
+  - browser: Chromium
+    device: 
+    screenWidth: 1024
+    screenHeight: 768
+  locale: en-US
+  recordVideo: true
+  headless: true
+  enablePowerFxOverlay: false
+  timeout: 30000
+environmentVariables:
+  filePath: 
+  users:
+  - personaName: User1
+    emailKey: user1Email
+    passwordKey: user1Password

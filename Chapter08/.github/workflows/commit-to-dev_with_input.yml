@@ -1,0 +1,167 @@
+name: Commit to dev branch with input
+on:
+   workflow_dispatch:
+    inputs:
+       dev_environment_name:
+         description: 'name of the developer environment and branch'
+         required: true
+         default: DEV-US_XXX_Z
+
+env:
+  kudos_solution_name: mpa_Kudos
+  experience_solution_name: mpa_EmployeeExperienceBase
+  solution_outbound_folder: out/solutions
+  solution_release_folder: out/release
+        
+jobs:
+  commit-to-dev-ee:
+      runs-on: ubuntu-latest
+      permissions: write-all 
+      steps:
+        - uses: actions/checkout@v2
+          with:
+           token: ${{ secrets.GITHUB_TOKEN }}
+           ref: dev/${{ github.event.inputs.dev_environment_name }}
+   
+        - name: Install Power Platform Tools
+          uses: microsoft/powerplatform-actions/actions-install@v1
+
+        - name: Install Pac CLI
+          run: |
+           echo "Installing Pac CLI"
+           dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+        - name: Authenticate with SPN
+          shell: bash
+          run: |
+             pac auth create --applicationId ${{secrets.PPAPPID}} \
+             --clientSecret ${{secrets.PPAPPSECRET}} \
+             --tenant ${{secrets.PPTENANTID}}
+
+        - name: "get the environment URL"
+          shell: bash
+          run: |
+              # Get the environment URL (the row before the last row contains the information)
+              # Check if we are on the main branch
+              if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+                rawOutput=$(pac admin list --name ${{ github.event.inputs.dev_environment_name }} | tail -n 2)
+              else
+                ref=${{ github.ref }}
+                branch="${ref#refs/heads/}"
+                echo "$branch"
+                # Workflow is executed on the dev branch so we need to get the environment URL from the dev branch
+                rawOutput=$(pac admin list --name $branch | tail -n 2)
+              fi
+              environmentURL=$(echo $rawOutput | cut -d ' ' -f 3)
+              echo "Environment URL: $environmentURL"
+              # settting the env.devEnvironmentURL
+              echo "devEnvironmentURL=$environmentURL" >> "$GITHUB_ENV"
+   
+        - name: Publish all customizations 
+          uses: microsoft/powerplatform-actions/publish-solution@v1
+          with:
+           environment-url: ${{env.devEnvironmentURL}}
+           app-id: ${{secrets.PPAPPID}}
+           client-secret: ${{secrets.PPAPPSECRET}}
+           tenant-id: ${{secrets.PPTENANTID}}
+        
+        - name: export-unmanaged-solution action - Employee Experience
+          uses: microsoft/powerplatform-actions/export-solution@v1
+          with:
+             environment-url: ${{env.devEnvironmentURL}}
+             app-id: ${{secrets.PPAPPID}}
+             client-secret: ${{secrets.PPAPPSECRET}}
+             tenant-id: ${{secrets.PPTENANTID}}
+             solution-name: ${{ env.experience_solution_name }}
+             solution-output-file: ${{env.solution_outbound_folder}}/${{ env.experience_solution_name}}.zip
+             managed: false
+        
+        - name: export-managed-solution action - Employee Experience
+          uses: microsoft/powerplatform-actions/export-solution@v1
+          with:
+             environment-url: ${{env.devEnvironmentURL}}
+             app-id: ${{secrets.PPAPPID}}
+             client-secret: ${{secrets.PPAPPSECRET}}
+             tenant-id: ${{secrets.PPTENANTID}}
+             solution-name: ${{ env.experience_solution_name }}
+             solution-output-file: ${{ env.solution_outbound_folder}}/${{ env.experience_solution_name }}_managed.zip
+             managed: true
+        
+        - name: unpack-solution action - Employee Experience
+          uses: microsoft/powerplatform-actions/unpack-solution@v1
+          with:
+             solution-file: ${{ env.solution_outbound_folder}}/${{ env.experience_solution_name }}.zip
+             solution-folder: src/${{ env.experience_solution_name }}/src
+             solution-type: 'Both'
+             process-canvas-apps: true
+        
+        - name: commit changes to dev branch
+          run: |
+            if git diff --exit-code --quiet
+            then
+               echo "No changes to commit"
+            else
+               git config --global user.email "github-actions[bot]@users.noreply.github.com"
+               git config --global user.name "github-actions[bot]"
+               git add src
+               git commit -m "committing changes to dev branch - Employee Exp"
+               git push origin dev/${{ github.event.inputs.dev_environment_name }}
+            fi
+      # using outputs to pass the environment URL to the next job
+      outputs:
+        environment-url: ${{env.devEnvironmentURL}}
+
+  commit-to-dev-kudos:
+   needs: [ commit-to-dev-ee ]
+   runs-on: ubuntu-latest
+   permissions: write-all 
+   steps:
+    - uses: actions/checkout@v2
+      with:
+       token: ${{ secrets.GITHUB_TOKEN }}
+       ref: dev/${{ github.event.inputs.dev_environment_name }}
+
+    - name: Install Power Platform Tools
+      uses: microsoft/powerplatform-actions/actions-install@v1
+ 
+    - name: export-unmanaged-solution action - Kudos
+      uses: microsoft/powerplatform-actions/export-solution@v1
+      with:
+         environment-url: ${{needs.commit-to-dev-ee.outputs.environment-url}}
+         app-id: ${{secrets.PPAPPID}}
+         client-secret: ${{secrets.PPAPPSECRET}}
+         tenant-id: ${{secrets.PPTENANTID}}
+         solution-name: ${{ env.kudos_solution_name }}
+         solution-output-file: ${{env.solution_outbound_folder}}/${{ env.kudos_solution_name}}.zip
+         managed: false
+    
+    - name: export-managed-solution action - Kudos
+      uses: microsoft/powerplatform-actions/export-solution@v1
+      with:
+         environment-url: ${{needs.commit-to-dev-ee.outputs.environment-url}}
+         app-id: ${{secrets.PPAPPID}}
+         client-secret: ${{secrets.PPAPPSECRET}}
+         tenant-id: ${{secrets.PPTENANTID}}
+         solution-name: ${{ env.kudos_solution_name }}
+         solution-output-file: ${{ env.solution_outbound_folder}}/${{ env.kudos_solution_name }}_managed.zip
+         managed: true
+    
+    - name: unpack-solution action - Kudos
+      uses: microsoft/powerplatform-actions/unpack-solution@v1
+      with:
+         solution-file: ${{ env.solution_outbound_folder}}/${{ env.kudos_solution_name }}.zip
+         solution-folder: src/${{ env.kudos_solution_name }}/src
+         solution-type: 'Both'
+         process-canvas-apps: true
+    
+    - name: commit changes to dev branch
+      run: |
+        if git diff --exit-code --quiet
+        then
+          echo "No changes to commit"
+        else
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git add src
+          git commit -m "committing changes to dev branch - Kudos"
+          git push origin dev/${{ github.event.inputs.dev_environment_name }}
+        fi

@@ -1,0 +1,137 @@
+name: Import to dev
+on:
+   workflow_dispatch:
+    
+env:
+  kudos_solution_name: mpa_Kudos
+  experience_solution_name: mpa_EmployeeExperienceBase
+  solution_outbound_folder: out/solutions
+  solution_release_folder: out/release
+  solutions_source_folder: src
+        
+jobs:
+  build-and-pack-solution-ee:
+     name: Build and Pack Solution for Employee Experience Base
+     uses: jovadker/ppdemo/.github/workflows/build-and-pack-solution.yml@main
+     with:
+        solution_name: mpa_EmployeeExperienceBase
+        solution_source_folder: src/mpa_EmployeeExperienceBase/src
+        solution_outbound_folder: out/solutions
+    
+  build-and-pack-solution-kudos:
+    needs: [ build-and-pack-solution-ee ] 
+    name: Build and Pack Solution for Employee Experience Base
+    uses: jovadker/ppdemo/.github/workflows/build-and-pack-solution.yml@main
+    with:
+        solution_name: mpa_Kudos
+        solution_source_folder: src/mpa_Kudos/src
+        solution_outbound_folder: out/solutions
+  
+  import-to-dev:
+      needs: [ build-and-pack-solution-kudos ]
+      runs-on: ubuntu-latest
+      # use the GitHub environment created for the developer branch
+      environment:
+         name: '${{ github.ref_name }}'
+      permissions: write-all 
+      steps:
+        - uses: actions/checkout@v2
+          with:
+           token: ${{ secrets.GITHUB_TOKEN }}
+   
+        - name: Install Power Platform Tools
+          uses: microsoft/powerplatform-actions/actions-install@v1
+
+        - name: Install Pac CLI
+          run: |
+           echo "Installing Pac CLI"
+           dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+
+        - name: Authenticate with SPN
+          shell: bash
+          run: |
+            pac auth create --applicationId ${{secrets.PPAPPID}} \
+            --clientSecret ${{secrets.PPAPPSECRET}} \
+            --tenant ${{secrets.PPTENANTID}}
+
+        - name: Fetch the unmanaged solution from GH artifact store
+          uses: actions/download-artifact@v2
+          with:
+             name: unmanagedSolutions
+             path: ${{ env.solution_release_folder}}
+
+        - name: "get the environment URL"
+          shell: bash
+          run: |
+            echo "Current branch: ${{github.ref_name}}"
+            # Get the environment URL (the row before the last row contains the information)
+            ref=${{ github.ref }}
+            echo "Ref: $ref"
+            branch="${ref#refs/heads/dev/}"
+            echo "$branch"
+            # Workflow is executed on the dev branch so we need to get the environment URL from the dev branch
+            rawOutput=$(pac admin list --name $branch | tail -n 2)
+            environmentURL=$(echo $rawOutput | cut -d ' ' -f 3)
+            echo "Environment URL: $environmentURL"
+            # settting the env.devEnvironmentURL
+            echo "devEnvironmentURL=$environmentURL" >> "$GITHUB_ENV"
+
+        - name: Import Employee Experience solution to dev environment
+          uses: microsoft/powerplatform-actions/import-solution@v1
+          with:
+            environment-url: ${{env.devEnvironmentURL}}
+            app-id: ${{secrets.PPAPPID}}
+            client-secret: ${{ secrets.PPAPPSECRET }}
+            tenant-id: ${{secrets.PPTENANTID}}
+            solution-file: ${{ env.solution_release_folder}}/${{ env.experience_solution_name }}_unmanaged.zip
+            run-asynchronously: true
+
+        - name: Adjust deployment settings for Kudos solution
+          shell: bash
+          run: |
+            newDataverseId="${{vars.DATAVERSE_CONNECTION_ID }}"
+            newO365Id="${{ vars.O365_CONNECTION_ID}}"
+            newOutlookId="${{ vars.OUTLOOK_CONNECTION_ID }}"
+            cat ${{ env.solutions_source_folder}}/${{ env.kudos_solution_name }}/deploymentSettings.json | jq --arg dataverseId "$newDataverseId" --arg o365Id "$newO365Id" --arg outlookId "$newOutlookId" '.ConnectionReferences[] |= 
+             if .ConnectionId == "[Dataverse]" then .ConnectionId = $dataverseId
+              elif .ConnectionId == "[O365]" then .ConnectionId = $o365Id
+              elif .ConnectionId == "[Outlook]" then .ConnectionId = $outlookId
+             else . end' > temp.json && mv temp.json ${{ env.solutions_source_folder}}/${{ env.kudos_solution_name }}/deploymentSettings.json
+             echo "Tokenized deployment settings file:"
+             cat ${{ env.solutions_source_folder}}/${{ env.kudos_solution_name }}/deploymentSettings.json
+        
+        - name: Import Kudos solution to dev environment with deployment settings
+          uses: microsoft/powerplatform-actions/import-solution@v1
+          with:
+            environment-url: ${{env.devEnvironmentURL}}
+            app-id: ${{secrets.PPAPPID}}
+            client-secret: ${{ secrets.PPAPPSECRET }}
+            tenant-id: ${{secrets.PPTENANTID}}
+            solution-file: ${{ env.solution_release_folder}}/${{ env.kudos_solution_name }}_unmanaged.zip
+            use-deployment-settings-file: true
+            deployment-settings-file: ${{ env.solutions_source_folder}}/${{ env.kudos_solution_name }}/deploymentSettings.json
+            run-asynchronously: true
+      # using outputs to pass the environment URL to the next job
+      outputs:
+        environment-url: ${{env.devEnvironmentURL}}
+
+  upload-data:
+    needs: [ import-to-dev ]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+         lfs: true
+      
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Import data to dev environment (only supported on Windows)
+        uses: microsoft/powerplatform-actions/import-data@v1
+        with:
+          environment-url: ${{needs.import-to-dev.outputs.environment-url}}
+          app-id: ${{secrets.PPAPPID}}
+          client-secret: ${{ secrets.PPAPPSECRET }}
+          tenant-id: ${{secrets.PPTENANTID}}
+          data-file: ./Data/SampleData.Kudos.BadgeData.zip
+        

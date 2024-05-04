@@ -1,0 +1,188 @@
+
+name: Release to Production
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      dataverseConnectionId:
+        description: 'Dataverse connection id'
+        required: true
+        default: cc54b39cf98e41e0969dfdd7b90e2e6a
+      o365IdConnectionId:
+        description: 'O365 connection id'
+        required: true
+        default: 4b143239cbbc4443a43466481bc39586
+      outlookIdConnectionId:
+        description: 'Outlook connection id'
+        required: true
+        default: c3a653db1d234550af69f51c22389c5d
+      groupId:
+        description: 'Microsoft Entra Group Id to share the app with'
+        required: true
+        default: 3936d80b-ee10-465b-9274-ff8048f0389b
+      enironment_display_name:
+        description: 'Environment display name'
+        required: true
+        default: DEV-US_XXX_Y
+env:
+  kudos_solution_name: mpa_Kudos
+  experience_solution_name: mpa_EmployeeExperienceBase
+  solution_source_folder: src
+  solution_outbound_folder: out/solutions
+  solution_release_folder: out/release
+
+jobs:
+  # build and pack employee experience solution (environment variables cannot be passed to the workflow_call event)
+  build-and-pack-solution-ee:
+    name: Build and Pack Solution for Employee Experience Base
+    uses: jovadker/ppdemo/.github/workflows/build-and-pack-solution.yml@main
+    with:
+      solution_name: mpa_EmployeeExperienceBase
+      solution_source_folder: src/mpa_EmployeeExperienceBase/src
+      solution_outbound_folder: out/solutions
+      
+  convert-to-managed:
+   needs: [ build-and-pack-solution-ee ]
+   runs-on: ubuntu-latest
+   steps:
+   - uses: actions/checkout@v4
+     with:
+       lfs: true
+   - name: Install Power Platform Tools
+     uses: microsoft/powerplatform-actions/actions-install@v1
+   - name: Pack unmanaged solution Kudos
+     uses: microsoft/powerplatform-actions/pack-solution@v1
+     with:
+         solution-folder: src/${{ env.kudos_solution_name }}/${{ env.solution_source_folder}}
+         solution-file: ${{ env.solution_outbound_folder}}/${{ env.kudos_solution_name }}_unmanaged.zip
+         solution-type: Unmanaged
+   - name: Pack managed solution Kudos
+     uses: microsoft/powerplatform-actions/pack-solution@v1
+     with:
+       solution-folder: src/${{ env.kudos_solution_name }}/${{ env.solution_source_folder}}
+       solution-file: ${{ env.solution_outbound_folder}}/${{ env.kudos_solution_name }}_managed.zip
+       solution-type: Managed
+   - name: Upload the unmanaged solution to GH artifact store 
+     uses: actions/upload-artifact@v3
+     with:
+       name: unmanagedSolutions
+       path: ${{ env.solution_outbound_folder}}/${{ env.kudos_solution_name }}_unmanaged.zip             
+   - name: Upload the managed solution to GH artifact store
+     uses: actions/upload-artifact@v3
+     with:
+       name: managedSolutions
+       path: ${{ env.solution_outbound_folder}}/${{ env.kudos_solution_name }}_managed.zip 
+
+  release-to-prod:
+    needs: [ convert-to-managed ]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        lfs: true
+    - name: Install Power Platform Tools
+      uses: microsoft/powerplatform-actions/actions-install@v1
+    - name: Install Pac CLI
+      run: |
+       echo "Installing Pac CLI"
+       dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+    - name: Authenticate with SPN
+      shell: bash
+      run: |
+        pac auth create --applicationId ${{secrets.PPAPPID}} \
+        --clientSecret ${{secrets.PPAPPSECRET}} \
+        --tenant ${{secrets.PPTENANTID}}
+
+    - name: "get the environment URL"
+      shell: bash
+      run: |
+        rawOutput=$(pac admin list --name ${{ github.event.inputs.enironment_display_name }} | tail -n 2)
+        environmentURL=$(echo $rawOutput | cut -d ' ' -f 3)
+        echo "Environment URL: $environmentURL"
+        # settting the env.devEnvironmentURL
+        echo "prodEnvironmentURL=$environmentURL" >> "$GITHUB_ENV"
+    - name: Fetch the ready to ship solution from GH artifact store
+      uses: actions/download-artifact@v2
+      with:
+        name: managedSolutions
+        path: ${{ env.solution_release_folder}}
+    - run: |
+        cd ${{ env.solution_release_folder}}
+        dir
+    - name: Import Employee Experience solution to prod environment
+      uses: microsoft/powerplatform-actions/import-solution@v1
+      with:
+        environment-url: "${{ env.prodEnvironmentURL }}"
+        app-id: ${{secrets.PPAPPID}}
+        client-secret: ${{ secrets.PPAPPSECRET }}
+        tenant-id: ${{secrets.PPTENANTID}}
+        solution-file: ${{ env.solution_release_folder}}/${{ env.experience_solution_name }}_managed.zip
+        run-asynchronously: true
+  
+    - name: Adjust deployment settings for Kudos solution
+      run: |
+        newDataverseId="${{ github.event.inputs.dataverseConnectionId }}"
+        newO365Id="${{ github.event.inputs.o365IdConnectionId }}"
+        newOutlookId="${{ github.event.inputs.outlookIdConnectionId }}"
+        cat ${{ env.solution_source_folder}}/${{ env.kudos_solution_name }}/deploymentSettings.json | jq --arg dataverseId "$newDataverseId" --arg o365Id "$newO365Id" --arg outlookId "$newOutlookId" '.ConnectionReferences[] |= 
+         if .ConnectionId == "[Dataverse]" then .ConnectionId = $dataverseId
+         elif .ConnectionId == "[O365]" then .ConnectionId = $o365Id
+         elif .ConnectionId == "[Outlook]" then .ConnectionId = $outlookId
+        else . end' > temp.json && mv temp.json ${{ env.solution_source_folder}}/${{ env.kudos_solution_name }}/deploymentSettings.json
+        echo "Tokenized deployment settings file:"
+        cat ${{ env.solution_source_folder}}/${{ env.kudos_solution_name }}/deploymentSettings.json
+  
+    - name: Import Kudos solution to prod environment with deployment settings
+      uses: microsoft/powerplatform-actions/import-solution@v1
+      with:
+        environment-url: ${{ env.prodEnvironmentURL }}
+        app-id: ${{secrets.PPAPPID}}
+        client-secret: ${{ secrets.PPAPPSECRET }}
+        tenant-id: ${{secrets.PPTENANTID}}
+        solution-file: ${{ env.solution_release_folder}}/${{ env.kudos_solution_name }}_managed.zip
+        use-deployment-settings-file: true
+        deployment-settings-file: ${{ env.solution_source_folder}}/${{ env.kudos_solution_name }}/deploymentSettings.json
+        run-asynchronously: true
+   # using outputs to pass the environment URL to the next job
+    outputs:
+     environment-url: ${{env.prodEnvironmentURL}}
+
+  share-app:
+    needs: [ release-to-prod ]
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        lfs: true
+    - name: Install Power Platform Tools
+      uses: microsoft/powerplatform-actions/actions-install@v1
+    - name: Share the application
+      shell: powershell
+      run: |
+           .github/workflows/share-app.ps1 -ApplicationId ${{secrets.PPAPPID}} `
+           -EnvironmentDisplayName ${{ github.event.inputs.enironment_display_name }} `
+           -ClientSecret ${{secrets.PPAPPSECRET}} `
+           -TenantId ${{secrets.PPTENANTID}} -solutionName "Kudos App" `
+           -GroupID ${{ github.event.inputs.groupId }}
+  
+  upload-data:
+    needs: [ release-to-prod ]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+         lfs: true
+         
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Upload data to prod environment
+        uses: microsoft/powerplatform-actions/import-data@v1
+        with:
+          environment-url: ${{needs.release-to-prod.outputs.environment-url}}
+          app-id: ${{secrets.PPAPPID}}
+          client-secret: ${{ secrets.PPAPPSECRET }}
+          tenant-id: ${{secrets.PPTENANTID}}
+          data-file: .\Data\SampleData.Kudos.BadgeData.zip
+          

@@ -1,0 +1,20 @@
+{
+  "EnvironmentVariables": [],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "mpa_KudosDataverse",
+      "ConnectionId": "[Dataverse]",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    },
+    {
+      "LogicalName": "mpa_KudosO365",
+      "ConnectionId": "[O365]",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_office365users"
+    },
+    {
+      "LogicalName": "mpa_KudosOutlook",
+      "ConnectionId": "[Outlook]",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+name: Setup dev environment
+
+on:
+    workflow_dispatch:
+     inputs:
+        dev_branch:
+         description: 'name of the developer branch'
+         required: true
+         default: DEV-US_XXX_Z
+        work_account:
+            description: 'work account of the developer'
+            required: true
+            default: makerb@jovadkere5.onmicrosoft.com
+
+jobs:
+  setup-dev-environment:
+    # Add permissions to the workflow job (GITHUB_TOKEN) to write to the repository
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+     - uses: actions/checkout@v2
+       with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+     - name: Install Power Platform Tools
+       uses: microsoft/powerplatform-actions/actions-install@v1
+
+     - name: Install Pac CLI
+       run: |
+        echo "Installing Pac CLI"
+        dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+
+     - name: Create developer branch
+       shell: bash
+       run: |
+        email="${{ github.event.inputs.work_account }}"
+        username="${email%%@*}"
+        git config user.name $username
+        git config user.email $email
+        #creating the branch under "dev" folder
+        newbranch=dev/${{ github.event.inputs.dev_branch }}
+        git checkout -b $newbranch
+        git push origin $newbranch
+      
+     - name: Authenticate with SPN
+       shell: bash
+       run: |
+        pac auth create --applicationId ${{secrets.PPAPPID}} \
+        --clientSecret ${{secrets.PPAPPSECRET}} \
+        --tenant ${{secrets.PPTENANTID}}
+
+     - name: Create Dev Environment on behalf of ${{ github.event.inputs.work_account }}
+       shell: bash
+       run: |
+        set -e
+            
+        az login --service-principal \
+            -u ${{secrets.PPAPPID}} \
+            -p ${{secrets.PPAPPSECRET}} \
+            --tenant ${{secrets.PPTENANTID}}
+
+        AADObjectID=$(az ad user show \
+             --id ${{ github.event.inputs.work_account }} \
+             --query id \
+             --output tsv)
+        
+        echo "AADObject ID: $AADObjectID" 
+        
+        pac admin create --name ${{ github.event.inputs.dev_branch }} \
+            --region unitedstates \
+            --type Developer \
+            --user $AADObjectID
+
+        # Get the environment Id (the row before the last row contains the information)
+        rawOutput=$(pac admin list --name ${{ github.event.inputs.dev_branch }} | tail -n 2)
+        environmentId=$(echo $rawOutput | cut -d ' ' -f 2)
+        
+        #adding system administrator role to the user who has created the developer environment
+        pac admin assign-user --environment $environmentId --user $AADObjectID --role "System Administrator"
+        
+        #adding system administrator role to the service principal as an application-user
+        pac admin assign-user --environment $environmentId --user ${{secrets.PPAPPID}} --role "System Administrator" --application-user
+        echo "Developer environment created successfully"

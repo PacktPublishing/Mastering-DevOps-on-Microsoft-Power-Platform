@@ -1,0 +1,47 @@
+name: Build and pack solution (reusable)
+on:
+    workflow_call:
+      inputs:
+        solution_name:
+          required: true
+          type: string
+          description: "solution name"
+        solution_source_folder: 
+         required: true
+         type: string
+         description: "solution source folder"
+        solution_outbound_folder:
+         required: true
+         type: string
+         description: "solution outbound folder"
+jobs:
+    pack-solution:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Install Power Platform Tools
+          uses: microsoft/powerplatform-actions/actions-install@v1
+        - uses: actions/checkout@v4
+          with:
+           lfs: true
+        - name: Pack unmanaged solution Kudos
+          uses: microsoft/powerplatform-actions/pack-solution@v1
+          with:
+           solution-folder: ${{ inputs.solution_source_folder}}
+           solution-file: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}_unmanaged.zip
+           solution-type: Unmanaged
+        - name: Pack managed solution Kudos
+          uses: microsoft/powerplatform-actions/pack-solution@v1
+          with:
+           solution-folder: ${{ inputs.solution_source_folder}}
+           solution-file: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}_managed.zip
+           solution-type: Managed
+        - name: Upload the unmanaged solution to GH artifact store 
+          uses: actions/upload-artifact@v3
+          with:
+           name: unmanagedSolutions
+           path: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}_unmanaged.zip             
+        - name: Upload the managed solution to GH artifact store
+          uses: actions/upload-artifact@v3
+          with:
+           name: managedSolutions
+           path: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}_managed.zip 
