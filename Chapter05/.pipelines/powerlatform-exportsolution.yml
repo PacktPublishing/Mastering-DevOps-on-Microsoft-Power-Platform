@@ -1,0 +1,47 @@
+trigger:
+- none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: PowerPlatformToolInstaller@2
+  inputs:
+    DefaultVersion: true
+
+- task: PowerPlatformExportSolution@2
+  inputs:
+    authenticationType: 'PowerPlatformSPN'
+    PowerPlatformSPN: 'PowerPlatformE5-Default'
+    SolutionName: 'TranslatorSolution'
+    SolutionOutputFile: '$(Build.ArtifactStagingDirectory)/Solution/TranslatorSolution.zip'
+    Managed: true
+    AsyncOperation: false
+    MaxAsyncWaitTime: '60'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: |
+      # Write your commands here
+      echo 'Hello world'
+      cd $(Build.ArtifactStagingDirectory)/Solution/
+      dir
+
+- task: PowerPlatformUnpackSolution@2
+  inputs:
+    SolutionInputFile: '$(Build.ArtifactStagingDirectory)/Solution/TranslatorSolution.zip'
+    SolutionTargetFolder: '$(Build.ArtifactStagingDirectory)/Solution/out'
+    SolutionType: 'Managed'
+      
+- task: PowerPlatformChecker@2
+  inputs:
+    PowerPlatformSPN: 'PowerPlatformE5-Default'
+    FilesToAnalyze: '$(Build.ArtifactStagingDirectory)/Solution/*.zip'
+    RuleSet: '0ad12346-e108-40b8-a956-9a8f95ea18c9'
+
+- task: PublishBuildArtifacts@1
+  enabled: true
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'Translator'
+    publishLocation: 'Container'
