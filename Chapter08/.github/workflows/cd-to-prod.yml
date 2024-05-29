@@ -24,7 +24,7 @@ on:
       enironment_display_name:
         description: 'Environment display name'
         required: true
-        default: DEV-US_XXX_Y
+        default: Kudos-Prod
 env:
   kudos_solution_name: mpa_Kudos
   experience_solution_name: mpa_EmployeeExperienceBase
