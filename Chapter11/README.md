@@ -17,6 +17,8 @@ Remember that the Power Platform provider is currently still experimental and no
 
 5. **variables.tf**: Declare input variables that can be used across your Terraform modules. These variables allow us to make configuration more flexible and reusable.
 
+6. **simple-tf-iac.yml**: Simple pipeline to demonstrate the usage of Terraform tasks in Azure DevOps.
+
 ## Authentication:
 
 To authenticate with the Power Platform, you have a few options:
