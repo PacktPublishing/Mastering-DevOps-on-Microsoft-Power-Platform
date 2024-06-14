@@ -1,0 +1,42 @@
+#An example of using Terraform tasks in Azure DevOps
+# 1. Create variables with appropriate values 
+# 2. Connect tasks with the service connection.
+# 3. Change outfile name
+
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: TerraformInstaller@1
+    inputs:
+      terraformVersion: 'latest'
+	  
+  - task: TerraformTaskV4@4
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/tf-iac/'
+      backendServiceArm: '<SERVICE_CONNECTION>'
+      backendAzureRmResourceGroupName: $(test-rg)
+      backendAzureRmStorageAccountName: $(storageaccountname)
+      backendAzureRmContainerName: $(containername)
+      backendAzureRmKey: 'terraform.tfstate'
+
+  - task: TerraformTaskV4@4
+    inputs:
+      provider: 'azurerm'
+      command: 'plan'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/tf-iac/'
+      commandOptions: '-var-file dev.variables.tfvars -out=<OUT_FILE>'
+      environmentServiceNameAzureRM: '<SERVICE_CONNECTION>'
+
+  - task: TerraformTaskV4@4
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/tf-iac/'
+      commandOptions: '<OUT_FILE>'
+      environmentServiceNameAzureRM: '<SERVICE_CONNECTION>'
