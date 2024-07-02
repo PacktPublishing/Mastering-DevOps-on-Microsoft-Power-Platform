@@ -1,0 +1,35 @@
+{
+  "modelVersion": "1.0.0.0",
+  "sourcePortal": 526430000,
+  "operation": "CreateOrUpdate",
+  "businessJustification": "Top requested Claims solution for Contoso",
+  "publisherDetails": {
+    "publisherId": "742d02b8-59ad-4aa4-b95a-bd41cd0459ed",
+    "publisherDisplayName": "Contoso IT Team"
+  },
+  "catalogItemDefinition": {
+    "id": "1cd8fe87-f508-51ad-8dcd-d12dda7d8668",
+    "displayName": "Customer Claims App Template",
+    "description": "Claims application template that allows to submit new customer claims.",
+    "offer": {
+      "type": "Component_Collection",
+      "deploymentType": "Normal",
+      "engineeringName": {
+        "firstName": "Ben",
+        "lastName": "Andrews",
+        "email": "ben@urkodev.com",
+        "phoneNumber": "999-111-1234"
+      },
+      "supportName": {
+        "firstName": "Chris",
+        "lastName": "Green",
+        "email": "chrisgreen@urkodev.com",
+        "phoneNumber": "999-111-1234"
+      }
+    },
+    "packageFile": {
+      "name": "ClaimsTemplate_managed.zip",
+      "fileSasLink": "https://urkodev.com/claims"
+    }
+  }
+}
