@@ -9,7 +9,7 @@ This repository contains files relevant to chapter 10.
 
 ## Usage
 
-Fork this repository and change the values of variables to adjust to your Power Platform environment.
+The provided files are for reference only.
 
 
 ## Contributing
