@@ -1,0 +1,28 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "demo_OutlookOnBehalfEV",
+      "Value": "<newvalue@domain.com>",
+      "DefaultValue": "<defaultvalue@domain.com>",
+      "Name": {
+        "Default": "OutlookOnBehalfEV",
+        "ByLcid": {
+          "1033": "OutlookOnBehalfEV"
+        }
+      },
+      "Description": {
+        "Default": "Outlook sender details",
+        "ByLcid": {
+          "1033": "Outlook sender details"
+        }
+      }
+    }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "demo_OutlookO365_CR",
+      "ConnectionId": "<target-connection-id>",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+    }
+  ]
+}
