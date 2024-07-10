@@ -9,7 +9,7 @@ This repository contains files relevant to chapter 10.
 
 ## Usage
 
-Fork this repository and change the values of variables to adjust to your Power Platform tenant and Microsoft Azure subscription.
+Fork this repository and change the values of variables to adjust to your Power Platform environment.
 
 
 ## Contributing
