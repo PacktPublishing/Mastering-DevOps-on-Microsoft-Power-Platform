@@ -2,8 +2,8 @@
   "EnvironmentVariables": [
     {
       "SchemaName": "demo_OutlookOnBehalfEV",
-      "Value": "<newvalue@domain.com>",
-      "DefaultValue": "<defaultvalue@domain.com>",
+      "Value": "#{OUTLOOK_NEW}#",   // assigned value for the current environment variable (i.e. newvalue@domain.com)
+      "DefaultValue": "#{OUTLOOK_DEFAULT}#",  // default value if no current value provided (i.e. defaultvalue@domain.com)
       "Name": {
         "Default": "OutlookOnBehalfEV",
         "ByLcid": {
@@ -20,9 +20,9 @@
   ],
   "ConnectionReferences": [
     {
-      "LogicalName": "demo_OutlookO365_CR",
-      "ConnectionId": "<target-connection-id>",
-      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+      "LogicalName": "demo_OutlookO365_CR", // connection reference name
+      "ConnectionId": "#{OUTLOOK_CONNECTION}#", // connection Id established in the target environment (i.e. b93632e3-2684-6633-aa34-a15db8d8866d)
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_office365" // API Id of a selected connector
     }
   ]
 }
